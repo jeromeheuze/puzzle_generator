@@ -23,22 +23,35 @@ logging.basicConfig(
 )
 
 class CDNBunnyUploader:
-    def __init__(self, storage_zone: str, api_key: str, storage_zone_name: str, region: str = 'de'):
+    def __init__(self, storage_zone: str, password: str, storage_zone_name: str, region: str = 'de'):
         self.storage_zone = storage_zone
-        self.api_key = api_key
+        self.password = password  # This is the password from FTP & API access
         self.storage_zone_name = storage_zone_name
         self.region = region
-        self.base_url = f"https://la.storage.bunnycdn.com/{storage_zone_name}"
+        
+        # Build base URL based on region
+        if region == 'la':
+            self.base_url = f"https://la.storage.bunnycdn.com/{storage_zone_name}"
+        elif region == 'de':
+            self.base_url = f"https://de.storage.bunnycdn.com/{storage_zone_name}"
+        elif region == 'uk':
+            self.base_url = f"https://uk.storage.bunnycdn.com/{storage_zone_name}"
+        elif region == 'ny':
+            self.base_url = f"https://ny.storage.bunnycdn.com/{storage_zone_name}"
+        else:
+            # Default to de
+            self.base_url = f"https://de.storage.bunnycdn.com/{storage_zone_name}"
+            
         self.pull_zone_url = f"https://api.bunny.net/pullzone"
         
         # Headers for API requests
         self.headers = {
-            'AccessKey': api_key,
+            'AccessKey': password,
             'Content-Type': 'application/json'
         }
         
         self.upload_headers = {
-            'AccessKey': api_key
+            'AccessKey': password
         }
     
     def upload_file(self, local_path: str, remote_path: str) -> Dict:
@@ -259,7 +272,7 @@ def main():
     parser.add_argument('--pdf-path', required=True, help='Path to PDF file to upload')
     parser.add_argument('--title', help='Ebook title for naming')
     parser.add_argument('--storage-zone', required=True, help='CDN Bunny storage zone')
-    parser.add_argument('--api-key', required=True, help='CDN Bunny API key')
+    parser.add_argument('--password', required=True, help='CDN Bunny password (from FTP & API access)')
     parser.add_argument('--storage-zone-name', required=True, help='CDN Bunny storage zone name')
     parser.add_argument('--region', default='de', help='CDN Bunny region (default: de)')
     parser.add_argument('--list', action='store_true', help='List uploaded files')
@@ -269,7 +282,7 @@ def main():
     
     uploader = CDNBunnyUploader(
         storage_zone=args.storage_zone,
-        api_key=args.api_key,
+        password=args.password,
         storage_zone_name=args.storage_zone_name,
         region=args.region
     )
