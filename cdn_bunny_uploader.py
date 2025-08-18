@@ -29,25 +29,24 @@ class CDNBunnyUploader:
         self.storage_zone_name = storage_zone_name
         self.region = region
         
-        # Build base URL based on region
+        # Build base URL based on region (with trailing slash for consistency)
         if region == 'la':
-            self.base_url = f"https://la.storage.bunnycdn.com/{storage_zone_name}"
+            self.base_url = f"https://la.storage.bunnycdn.com/{storage_zone_name}/"
         elif region == 'de':
-            self.base_url = f"https://de.storage.bunnycdn.com/{storage_zone_name}"
+            self.base_url = f"https://de.storage.bunnycdn.com/{storage_zone_name}/"
         elif region == 'uk':
-            self.base_url = f"https://uk.storage.bunnycdn.com/{storage_zone_name}"
+            self.base_url = f"https://uk.storage.bunnycdn.com/{storage_zone_name}/"
         elif region == 'ny':
-            self.base_url = f"https://ny.storage.bunnycdn.com/{storage_zone_name}"
+            self.base_url = f"https://ny.storage.bunnycdn.com/{storage_zone_name}/"
         else:
             # Default to de
-            self.base_url = f"https://de.storage.bunnycdn.com/{storage_zone_name}"
+            self.base_url = f"https://de.storage.bunnycdn.com/{storage_zone_name}/"
             
         self.pull_zone_url = f"https://api.bunny.net/pullzone"
         
         # Headers for API requests
         self.headers = {
-            'AccessKey': password,
-            'Content-Type': 'application/json'
+            'AccessKey': password
         }
         
         self.upload_headers = {
