@@ -211,8 +211,23 @@ class RPIPollingClient:
                 "shrine_puzzle_api_key_2024"  # Use the puzzle API key
             )
             
-            sizes = params.get('sizes', [6, 8])
-            difficulties = params.get('difficulties', ['easy', 'medium'])
+            # Ensure proper data types
+            sizes_raw = params.get('sizes', [6, 8])
+            if isinstance(sizes_raw, str):
+                sizes = [int(sizes_raw)]
+            elif isinstance(sizes_raw, list):
+                sizes = [int(s) if isinstance(s, str) else s for s in sizes_raw]
+            else:
+                sizes = [int(sizes_raw)]
+            
+            difficulties_raw = params.get('difficulties', ['easy', 'medium'])
+            if isinstance(difficulties_raw, str):
+                difficulties = [difficulties_raw]
+            elif isinstance(difficulties_raw, list):
+                difficulties = difficulties_raw
+            else:
+                difficulties = [str(difficulties_raw)]
+            
             count = int(params.get('count', 5))  # Ensure count is an integer
             mode = params.get('mode', 'premium')
             
