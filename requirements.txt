@@ -1,0 +1,4 @@
+mysql-connector-python==8.2.0
+argparse
+reportlab==4.0.4
+requests==2.31.0
