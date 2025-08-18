@@ -6,10 +6,12 @@ After=network.target
 Type=simple
 User=rpi
 WorkingDirectory=/home/rpi/puzzle_generator
-Environment=PATH=/home/rpi/puzzle_generator/akari_env/bin
+Environment=PATH=/home/rpi/puzzle_generator/akari_env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/home/rpi/puzzle_generator/akari_env/bin/python3 rpi_polling_client.py
 Restart=always
 RestartSec=10
+# Allow systemctl commands
+NoNewPrivileges=false
 
 [Install]
 WantedBy=multi-user.target

@@ -40,16 +40,16 @@ class RPIPollingClient:
         """Get current system status"""
         try:
             # Get uptime
-            uptime = subprocess.check_output(['uptime']).decode().strip()
+            uptime = subprocess.check_output(['/usr/bin/uptime']).decode().strip()
             
             # Get disk usage
-            disk = subprocess.check_output(['df', '-h', '/']).decode().strip()
+            disk = subprocess.check_output(['/bin/df', '-h', '/']).decode().strip()
             
             # Get memory usage
-            memory = subprocess.check_output(['free', '-h']).decode().strip()
+            memory = subprocess.check_output(['/usr/bin/free', '-h']).decode().strip()
             
             # Check service status
-            api_status = subprocess.check_output(['systemctl', 'is-active', 'akari-api.service']).decode().strip()
+            api_status = subprocess.check_output(['/bin/systemctl', 'is-active', 'akari-api.service']).decode().strip()
             
             # Get recent log entries
             log_file = 'logs/akari_generator_api.log'
@@ -260,7 +260,7 @@ class RPIPollingClient:
     def restart_service(self) -> Dict:
         """Restart the API service"""
         try:
-            subprocess.run(['sudo', 'systemctl', 'restart', 'akari-api.service'], check=True)
+            subprocess.run(['/bin/systemctl', 'restart', 'akari-api.service'], check=True)
             
             return {
                 'success': True,
