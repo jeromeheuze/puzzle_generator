@@ -252,11 +252,18 @@ class RPIPollingClient:
         """Generate ebook"""
         try:
             from ebook_generator import EbookGenerator
+            from cdn_bunny_uploader import CDNBunnyUploader
             
             # Simple config without external dependencies
             config = {
                 'api_url': 'https://shrinepuzzle.com/api/puzzle_receiver.php',
-                'api_key': 'shrine_puzzle_api_key_2024'
+                'api_key': 'shrine_puzzle_api_key_2024',
+                'cdn_bunny': {
+                    'storage_zone': 'shrinepuzzle',
+                    'password': 'shrinepuzzle-cdn-2024',
+                    'storage_zone_name': 'shrinepuzzle',
+                    'region': 'de'
+                }
             }
             
             generator = EbookGenerator(config)
@@ -281,13 +288,38 @@ class RPIPollingClient:
             
             generator.generate_ebook(puzzles, filepath, title)
             
-            return {
-                'success': True,
-                'action': 'generate_ebook',
-                'file_path': filepath,
-                'puzzles_generated': len(puzzles),
-                'timestamp': datetime.now().isoformat()
-            }
+            # Upload to CDN Bunny
+            try:
+                cdn_config = config['cdn_bunny']
+                uploader = CDNBunnyUploader(
+                    storage_zone=cdn_config['storage_zone'],
+                    password=cdn_config['password'],
+                    storage_zone_name=cdn_config['storage_zone_name'],
+                    region=cdn_config['region']
+                )
+                
+                upload_result = uploader.upload_ebook(filepath, title)
+                
+                return {
+                    'success': True,
+                    'action': 'generate_ebook',
+                    'file_path': filepath,
+                    'puzzles_generated': len(puzzles),
+                    'cdn_url': upload_result.get('file_url'),
+                    'cdn_upload_success': upload_result.get('success', False),
+                    'timestamp': datetime.now().isoformat()
+                }
+                
+            except Exception as cdn_error:
+                # If CDN upload fails, still return success for local file
+                return {
+                    'success': True,
+                    'action': 'generate_ebook',
+                    'file_path': filepath,
+                    'puzzles_generated': len(puzzles),
+                    'cdn_error': str(cdn_error),
+                    'timestamp': datetime.now().isoformat()
+                }
             
         except Exception as e:
             return {'success': False, 'error': str(e)}
