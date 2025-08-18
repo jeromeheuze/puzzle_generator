@@ -430,15 +430,18 @@ class RPIPollingClient:
                 time.sleep(self.poll_interval)
 
 def main():
-    # Load config
-    with open('config/generator_config.json', 'r') as f:
-        config = json.load(f)
+    # Simple config without external file dependency
+    config = {
+        'web_server_url': "https://shrinepuzzle.com",
+        'api_key': "shrine_admin_key_2024",
+        'poll_interval': 30
+    }
     
     # Create polling client
     client = RPIPollingClient(
-        web_server_url="https://shrinepuzzle.com",
-        api_key="shrine_admin_key_2024",
-        poll_interval=30  # Poll every 30 seconds
+        web_server_url=config['web_server_url'],
+        api_key=config['api_key'],
+        poll_interval=config['poll_interval']  # Poll every 30 seconds
     )
     
     # Start polling

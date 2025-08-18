@@ -1,0 +1,19 @@
+[Unit]
+Description=Raspberry Pi Akari Puzzle Generator Polling Client (Virtual Environment)
+After=network.target
+
+[Service]
+Type=simple
+User=rpi
+Group=rpi
+WorkingDirectory=/home/rpi/puzzle_generator
+Environment=PATH=/home/rpi/puzzle_generator/akari_env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONPATH=/home/rpi/puzzle_generator
+ExecStart=/home/rpi/puzzle_generator/akari_env/bin/python3 /home/rpi/puzzle_generator/rpi_polling_client_fixed.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
