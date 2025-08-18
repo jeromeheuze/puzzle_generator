@@ -205,10 +205,10 @@ class RPIPollingClient:
         try:
             from akari_generator_api import AkariPuzzleGeneratorAPI
             
-            # Use the same API key as the polling client
+            # Use the correct API key for puzzle submission
             generator = AkariPuzzleGeneratorAPI(
                 "https://shrinepuzzle.com/api/puzzle_receiver.php",
-                "shrine_admin_key_2024"  # Use the same key as the polling client
+                "shrine_puzzle_api_key_2024"  # Use the puzzle API key
             )
             
             sizes = params.get('sizes', [6, 8])
