@@ -249,54 +249,152 @@ class RPIPollingClient:
             return {'success': False, 'error': str(e)}
     
     def generate_ebook(self, params: Dict) -> Dict:
-        """Generate ebook"""
+        """Generate HTML ebook with zen-like design"""
         try:
-            from ebook_generator import EbookGenerator
-            from cdn_bunny_uploader import CDNBunnyUploader
+            from enhanced_html_ebook_generator import EnhancedHTMLEbookGenerator
             
-            # Simple config without external dependencies
+            # Configuration for HTML ebook generation
             config = {
                 'api_url': 'https://shrinepuzzle.com/api/puzzle_receiver.php',
                 'api_key': 'shrine_puzzle_api_key_2024',
+                'output_dir': './generated_ebooks',
+                'log_file': './html_ebook_generation.log',
                 'cdn_bunny': {
-                    'storage_zone': 'shrinepuzzle',
-                    'password': 'shrinepuzzle-cdn-2024',
-                    'storage_zone_name': 'shrinepuzzle',
-                    'region': 'de'
+                    'storage_zone': 'shrinepuzzle-ebooks',
+                    'api_key': 'your_cdn_bunny_api_key_here',  # Update with actual key
+                    'pull_zone': 'https://shrinepuzzle-ebooks.b-cdn.net'
                 }
             }
             
-            generator = EbookGenerator(config)
+            # Initialize HTML ebook generator
+            generator = EnhancedHTMLEbookGenerator(config)
             
+            # Extract parameters
             title = params.get('title', 'Akari Puzzle Collection')
             sizes = params.get('sizes', [6, 8])
             difficulties = params.get('difficulties', ['easy', 'medium'])
             count = params.get('count', 20)
+            
+            # Ensure output directory exists
+            os.makedirs(config['output_dir'], exist_ok=True)
             
             # Generate puzzles first
             from akari_generator_api import AkariPuzzleGeneratorAPI
             puzzle_gen = AkariPuzzleGeneratorAPI(config['api_url'], config['api_key'])
             puzzles = puzzle_gen.generate_ebook_puzzles(sizes, count)
             
-            # Ensure ebooks directory exists
-            os.makedirs('ebooks', exist_ok=True)
+            # Filter puzzles by difficulty if specified
+            if difficulties:
+                puzzles = [p for p in puzzles if p.get('difficulty') in difficulties]
             
-            # Generate PDF
+            if not puzzles:
+                return {'success': False, 'error': 'No puzzles generated with specified parameters'}
+            
+            # Create output filename
+            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
+            safe_title = safe_title.replace(' ', '_')
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"akari_ebook_{timestamp}.pdf"
-            filepath = f"ebooks/{filename}"
+            output_file = os.path.join(config['output_dir'], f"akari_ebook_{timestamp}_{safe_title}.html")
             
-            generator.generate_ebook(puzzles, filepath, title)
+            # Generate HTML ebook
+            generator.generate_ebook(
+                puzzles, 
+                output_file, 
+                title,
+                auto_open=False,
+                include_print_button=True
+            )
             
             # Upload to CDN Bunny
             try:
-                cdn_config = config['cdn_bunny']
-                uploader = CDNBunnyUploader(
-                    storage_zone=cdn_config['storage_zone'],
-                    password=cdn_config['password'],
-                    storage_zone_name=cdn_config['storage_zone_name'],
-                    region=cdn_config['region']
-                )
+                cdn_result = self.upload_to_cdn_bunny(output_file, title, config['cdn_bunny'])
+                
+                if cdn_result['success']:
+                    return {
+                        'success': True,
+                        'action': 'generate_html_ebook',
+                        'result': {
+                            'file_path': output_file,
+                            'cdn_url': cdn_result['cdn_url'],
+                            'puzzle_count': len(puzzles),
+                            'file_size': os.path.getsize(output_file) if os.path.exists(output_file) else 0
+                        },
+                        'timestamp': datetime.now().isoformat()
+                    }
+                else:
+                    return {
+                        'success': True,
+                        'action': 'generate_html_ebook',
+                        'result': {
+                            'file_path': output_file,
+                            'cdn_url': None,
+                            'cdn_error': cdn_result['error'],
+                            'puzzle_count': len(puzzles),
+                            'file_size': os.path.getsize(output_file) if os.path.exists(output_file) else 0
+                        },
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    
+            except Exception as cdn_error:
+                return {
+                    'success': True,
+                    'action': 'generate_html_ebook',
+                    'result': {
+                        'file_path': output_file,
+                        'cdn_url': None,
+                        'cdn_error': str(cdn_error),
+                        'puzzle_count': len(puzzles),
+                        'file_size': os.path.getsize(output_file) if os.path.exists(output_file) else 0
+                    },
+                    'timestamp': datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            logging.error(f"Error generating HTML ebook: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def upload_to_cdn_bunny(self, file_path: str, title: str, cdn_config: Dict) -> Dict:
+        """Upload file to CDN Bunny"""
+        try:
+            import requests
+            from pathlib import Path
+            
+            filename = Path(file_path).name
+            cdn_filename = f'akari_ebook_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{filename}'
+            
+            url = f"https://storage.bunnycdn.com/{cdn_config['storage_zone']}/{cdn_filename}"
+            
+            with open(file_path, 'rb') as f:
+                headers = {
+                    'AccessKey': cdn_config['api_key'],
+                    'Content-Type': 'text/html'
+                }
+                
+                response = requests.put(url, data=f, headers=headers, timeout=60)
+                
+                if response.status_code == 201:
+                    cdn_url = f"{cdn_config['pull_zone']}/{cdn_filename}"
+                    logging.info(f"CDN upload successful: {cdn_url}")
+                    return {
+                        'success': True,
+                        'cdn_url': cdn_url,
+                        'filename': cdn_filename
+                    }
+                else:
+                    error_msg = f"Upload failed: HTTP {response.status_code}"
+                    logging.error(f"CDN upload failed: {error_msg}")
+                    return {
+                        'success': False,
+                        'error': error_msg
+                    }
+                    
+        except Exception as e:
+            error_msg = f"CDN upload error: {str(e)}"
+            logging.error(error_msg)
+            return {
+                'success': False,
+                'error': error_msg
+            }
                 
                 upload_result = uploader.upload_ebook(filepath, title)
                 
