@@ -191,6 +191,8 @@ class RPIPollingClient:
                 return self.get_logs(params)
             elif action == 'restart_service':
                 return self.restart_service()
+            elif action == 'cleanup_stuck_commands':
+                return self.cleanup_stuck_commands(params)
             else:
                 return {'success': False, 'error': f'Unknown action: {action}'}
                 
@@ -217,10 +219,10 @@ class RPIPollingClient:
             count = params.get('count', 5)
             mode = params.get('mode', 'premium')
             
-            result = generator.generate_puzzles(
+            result = generator.generate_batch(
                 sizes=sizes,
                 difficulties=difficulties,
-                count=count,
+                count_per_size=count,
                 mode=mode
             )
             
@@ -253,7 +255,7 @@ class RPIPollingClient:
             # Generate puzzles first
             from akari_generator_api import AkariPuzzleGeneratorAPI
             puzzle_gen = AkariPuzzleGeneratorAPI(config['api_url'], config['api_key'])
-            puzzles = puzzle_gen.generate_puzzles_for_ebook(sizes, difficulties, count)
+            puzzles = puzzle_gen.generate_ebook_puzzles(sizes, count)
             
             # Generate PDF
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -328,6 +330,35 @@ class RPIPollingClient:
             
             return {'success': False, 'error': 'systemctl command not found'}
             
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    def cleanup_stuck_commands(self, params: Dict) -> Dict:
+        """Clean up stuck commands by calling the web server API"""
+        try:
+            older_than_minutes = params.get('older_than_minutes', 30)
+            
+            response = self.session.post(
+                f"{self.web_server_url}/api/cleanup_stuck_commands.php",
+                headers=self.headers,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    'success': True,
+                    'action': 'cleanup_stuck_commands',
+                    'result': result,
+                    'timestamp': datetime.now().isoformat()
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f'Cleanup failed: HTTP {response.status_code}',
+                    'timestamp': datetime.now().isoformat()
+                }
+                
         except Exception as e:
             return {'success': False, 'error': str(e)}
     
