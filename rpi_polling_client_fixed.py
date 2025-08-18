@@ -213,7 +213,7 @@ class RPIPollingClient:
             
             sizes = params.get('sizes', [6, 8])
             difficulties = params.get('difficulties', ['easy', 'medium'])
-            count = params.get('count', 5)
+            count = int(params.get('count', 5))  # Ensure count is an integer
             mode = params.get('mode', 'premium')
             
             result = generator.generate_batch(
