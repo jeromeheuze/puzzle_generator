@@ -253,9 +253,11 @@ class RPIPollingClient:
         try:
             from ebook_generator import EbookGenerator
             
-            # Load config
-            with open('config/generator_config.json', 'r') as f:
-                config = json.load(f)
+            # Simple config without external dependencies
+            config = {
+                'api_url': 'https://shrinepuzzle.com/api/puzzle_receiver.php',
+                'api_key': 'shrine_puzzle_api_key_2024'
+            }
             
             generator = EbookGenerator(config)
             
@@ -269,6 +271,9 @@ class RPIPollingClient:
             puzzle_gen = AkariPuzzleGeneratorAPI(config['api_url'], config['api_key'])
             puzzles = puzzle_gen.generate_ebook_puzzles(sizes, count)
             
+            # Ensure ebooks directory exists
+            os.makedirs('ebooks', exist_ok=True)
+            
             # Generate PDF
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"akari_ebook_{timestamp}.pdf"
@@ -276,23 +281,11 @@ class RPIPollingClient:
             
             generator.generate_ebook(puzzles, filepath, title)
             
-            # Upload to CDN
-            from cdn_bunny_uploader import CDNBunnyUploader
-            cdn_config = config['cdn_bunny']
-            uploader = CDNBunnyUploader(
-                cdn_config['storage_zone'],
-                cdn_config['password'],
-                cdn_config['storage_zone_name'],
-                cdn_config['region']
-            )
-            
-            upload_result = uploader.upload_ebook(filepath, title)
-            
             return {
                 'success': True,
                 'action': 'generate_ebook',
                 'file_path': filepath,
-                'cdn_url': upload_result.get('file_url'),
+                'puzzles_generated': len(puzzles),
                 'timestamp': datetime.now().isoformat()
             }
             

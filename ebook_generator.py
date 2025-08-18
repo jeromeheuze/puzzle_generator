@@ -15,12 +15,16 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
-from akari_generator import AkariPuzzleGenerator
+from akari_generator_api import AkariPuzzleGeneratorAPI
 
 class EbookGenerator:
-    def __init__(self, db_config: Dict):
-        self.db_config = db_config
-        self.puzzle_generator = AkariPuzzleGenerator(db_config)
+    def __init__(self, config: Dict):
+        self.config = config
+        # Use API version instead of database version
+        self.puzzle_generator = AkariPuzzleGeneratorAPI(
+            config.get('api_url', 'https://shrinepuzzle.com/api/puzzle_receiver.php'),
+            config.get('api_key', 'shrine_puzzle_api_key_2024')
+        )
         
     def create_puzzle_grid(self, layout: List[List], size: int) -> List[List]:
         """Convert puzzle layout to printable grid"""
@@ -108,17 +112,20 @@ class EbookGenerator:
         
         for i, puzzle in enumerate(puzzles, 1):
             story.append(Paragraph(
-                f"{i}. {puzzle['size']}x{puzzle['size']} {puzzle['difficulty'].title()} Puzzle",
+                f"{i}. {puzzle['size']}x{puzzle['size']} {puzzle['difficulty'].title()}",
                 styles['Normal']
             ))
+        
         story.append(PageBreak())
         
-        # Puzzles
+        # Puzzles section
+        story.append(Paragraph("Puzzles", styles['Heading1']))
+        story.append(Spacer(1, 20))
+        
         for i, puzzle in enumerate(puzzles, 1):
             size = puzzle['size']
             layout = puzzle['layout']
             
-            # Puzzle title
             story.append(Paragraph(
                 f"Puzzle {i}: {size}x{size} {puzzle['difficulty'].title()}",
                 puzzle_style
@@ -208,18 +215,15 @@ def main():
     
     args = parser.parse_args()
     
-    # Database configuration
-    db_config = {
-        'host': 'localhost',
-        'user': 'spectrum_shrine_user',
-        'password': 'ehq-!yhv~3soe^jx',
-        'database': 'spectrum_shrinepuz',
-        'charset': 'utf8mb4'
+    # Configuration (API-based instead of database)
+    config = {
+        'api_url': 'https://shrinepuzzle.com/api/puzzle_receiver.php',
+        'api_key': 'shrine_puzzle_api_key_2024'
     }
     
-    generator = EbookGenerator(db_config)
+    generator = EbookGenerator(config)
     
-    # Generate puzzles for ebook
+    # Generate puzzles for ebook using API version
     print(f"Generating {args.count} puzzles per size/difficulty combination...")
     puzzles = generator.puzzle_generator.generate_ebook_puzzles(args.sizes, args.count)
     
