@@ -59,7 +59,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
+User=rpi
 WorkingDirectory=$(pwd)
 Environment=PATH=$(pwd)/akari_env/bin
 ExecStart=$(pwd)/akari_env/bin/python3 rpi_api_server.py
@@ -80,7 +80,7 @@ echo "🌐 Setting up nginx reverse proxy..."
 cat > akari-api.nginx << EOF
 server {
     listen 80;
-    server_name _;
+    server_name rpi-5-001.local;
 
     location / {
         proxy_pass http://127.0.0.1:8080;
