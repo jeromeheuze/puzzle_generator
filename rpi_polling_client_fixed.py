@@ -151,7 +151,7 @@ class RPIPollingClient:
             response = self.session.get(
                 f"{self.web_server_url}/api/rpi_commands.php",
                 headers=self.headers,
-                params={"hostname": hostname},
+                params={"hostname": hostname, "_t": int(time.time())},
                 timeout=30
             )
             
