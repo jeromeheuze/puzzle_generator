@@ -1,0 +1,21 @@
+[Unit]
+Description=Raspberry Pi Polling Client - Fixed Version
+After=network.target
+
+[Service]
+Type=simple
+User=rpi
+Group=rpi
+WorkingDirectory=/home/rpi/puzzle_generator
+Environment=PATH=/home/rpi/puzzle_generator/akari_env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONPATH=/home/rpi/puzzle_generator
+ExecStart=/home/rpi/puzzle_generator/akari_env/bin/python3 rpi_polling_client_fixed.py
+Restart=always
+RestartSec=10
+# Allow systemctl commands
+NoNewPrivileges=false
+# Give access to system commands
+ReadWritePaths=/sys /proc
+
+[Install]
+WantedBy=multi-user.target
