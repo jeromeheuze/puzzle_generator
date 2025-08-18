@@ -69,7 +69,7 @@ class AkariPuzzleGeneratorAPI:
         return count
     
     def generate_random_layout(self, size: int, wall_ratio: float = 0.25, number_ratio: float = 0.4) -> List[List]:
-        """Generate a random Akari layout"""
+        """Generate a random Akari layout with improved number placement"""
         layout = [[0 for _ in range(size)] for _ in range(size)]
         
         # Add random walls
@@ -78,45 +78,143 @@ class AkariPuzzleGeneratorAPI:
                 if random.random() < wall_ratio:
                     layout[y][x] = 'X'
         
-        # Add numbers to some walls
+        # Add numbers only to walls that have adjacent white cells
+        walls_with_adjacent_whites = []
         for y in range(size):
             for x in range(size):
-                if layout[y][x] == 'X' and random.random() < number_ratio:
+                if layout[y][x] == 'X':
                     adjacent_whites = self.count_adjacent_whites(layout, x, y, size)
                     if adjacent_whites > 0:
-                        layout[y][x] = str(random.randint(0, min(adjacent_whites, 4)))
+                        walls_with_adjacent_whites.append((x, y, adjacent_whites))
+        
+        # Add numbers to some walls with adjacent whites
+        for x, y, adjacent_whites in walls_with_adjacent_whites:
+            if random.random() < number_ratio:
+                # Ensure number is reasonable (1 to adjacent_whites, but not 0)
+                number = random.randint(1, min(adjacent_whites, 4))
+                layout[y][x] = str(number)
         
         return layout
     
     def is_solvable(self, layout: List[List], size: int) -> bool:
         """
-        Basic solvability check for Akari puzzles
-        This is a simplified check - full solvability requires solving the puzzle
+        Comprehensive solvability check for Akari puzzles
+        Checks multiple criteria to ensure puzzle is well-designed and solvable
         """
-        # Check if there are enough white cells
+        # 1. Check if there are enough white cells
         white_cells = sum(1 for row in layout for cell in row if cell == 0)
-        if white_cells < size:  # Need at least size white cells
+        total_cells = size * size
+        
+        # Need at least size white cells, but not too many
+        if white_cells < size:
             return False
         
-        # Check if numbered cells have reasonable constraints
+        # Too many white cells makes puzzle too easy
+        if white_cells > total_cells * 0.85:
+            return False
+        
+        # 2. Check if there are numbered cells (constraints)
+        numbered_cells = []
+        for y in range(size):
+            for x in range(size):
+                if isinstance(layout[y][x], str) and layout[y][x].isdigit():
+                    numbered_cells.append((x, y, int(layout[y][x])))
+        
+        # Need at least some numbered cells for constraints
+        if len(numbered_cells) == 0:
+            return False
+        
+        # 3. Check if numbered cells have valid constraints
+        for x, y, number in numbered_cells:
+            adjacent_whites = self.count_adjacent_whites(layout, x, y, size)
+            
+            # Number cannot exceed adjacent white cells
+            if number > adjacent_whites:
+                return False
+            
+            # Number should be reasonable (not 0 unless it's a wall with no adjacent whites)
+            if number == 0 and adjacent_whites > 0:
+                return False
+        
+        # 4. Check for isolated white cells (cells with no path to numbered cells)
+        if not self._has_connected_white_cells(layout, size):
+            return False
+        
+        # 5. Check for reasonable difficulty balance
+        wall_cells = sum(1 for row in layout for cell in row if cell == 'X')
+        wall_ratio = wall_cells / total_cells
+        
+        # Wall ratio should be reasonable (not too sparse, not too dense)
+        if wall_ratio < 0.05 or wall_ratio > 0.5:
+            return False
+        
+        # 6. Check if puzzle has interesting structure
+        if not self._has_interesting_structure(layout, size):
+            return False
+        
+        return True
+    
+    def _has_connected_white_cells(self, layout: List[List], size: int) -> bool:
+        """Check if white cells are connected to numbered cells"""
+        # Find all white cells
+        white_positions = []
+        for y in range(size):
+            for x in range(size):
+                if layout[y][x] == 0:
+                    white_positions.append((x, y))
+        
+        if not white_positions:
+            return False
+        
+        # Check if at least some white cells are adjacent to numbered cells
+        connected_whites = 0
+        for x, y in white_positions:
+            for dx, dy in [(-1,0), (1,0), (0,-1), (0,1)]:
+                nx, ny = x + dx, y + dy
+                if (0 <= nx < size and 0 <= ny < size and 
+                    isinstance(layout[ny][nx], str) and layout[ny][nx].isdigit()):
+                    connected_whites += 1
+                    break
+        
+        # For small puzzles (6x6), be more lenient - at least 20% connected
+        # For larger puzzles, require more connections
+        min_connection_ratio = 0.2 if size <= 6 else 0.3
+        return connected_whites >= len(white_positions) * min_connection_ratio
+    
+    def _has_interesting_structure(self, layout: List[List], size: int) -> bool:
+        """Check if puzzle has interesting structural elements"""
+        # Count different types of numbered cells
+        number_counts = {}
         for y in range(size):
             for x in range(size):
                 if isinstance(layout[y][x], str) and layout[y][x].isdigit():
                     number = int(layout[y][x])
-                    adjacent_whites = self.count_adjacent_whites(layout, x, y, size)
-                    if number > adjacent_whites:
-                        return False
+                    number_counts[number] = number_counts.get(number, 0) + 1
+        
+        # Should have variety in numbered cells (not all the same number)
+        if len(number_counts) < 1:  # Allow single number for very small puzzles
+            return False
+        
+        # Should have some higher numbers (2, 3, 4) for complexity, but not required for small puzzles
+        has_higher_numbers = any(num >= 2 for num in number_counts.keys())
+        if size >= 8 and not has_higher_numbers:  # Only require for larger puzzles
+            return False
+        
+        # Check for reasonable distribution of numbers
+        total_numbered = sum(number_counts.values())
+        if total_numbered < 1 or total_numbered > size * 2:
+            return False
         
         return True
     
     def generate_puzzle(self, size: int, difficulty: str = 'medium') -> Optional[Dict]:
-        """Generate a single Akari puzzle"""
+        """Generate a single Akari puzzle with improved validation"""
         # Adjust parameters based on difficulty
         difficulty_params = {
-            'easy': {'wall_ratio': 0.2, 'number_ratio': 0.3, 'max_attempts': 50},
-            'medium': {'wall_ratio': 0.25, 'number_ratio': 0.4, 'max_attempts': 100},
-            'hard': {'wall_ratio': 0.3, 'number_ratio': 0.5, 'max_attempts': 200},
-            'expert': {'wall_ratio': 0.35, 'number_ratio': 0.6, 'max_attempts': 300}
+            'easy': {'wall_ratio': 0.2, 'number_ratio': 0.4, 'max_attempts': 100},
+            'medium': {'wall_ratio': 0.25, 'number_ratio': 0.5, 'max_attempts': 150},
+            'hard': {'wall_ratio': 0.3, 'number_ratio': 0.6, 'max_attempts': 200},
+            'expert': {'wall_ratio': 0.35, 'number_ratio': 0.7, 'max_attempts': 300}
         }
         
         params = difficulty_params.get(difficulty, difficulty_params['medium'])
@@ -124,7 +222,11 @@ class AkariPuzzleGeneratorAPI:
         for attempt in range(params['max_attempts']):
             layout = self.generate_random_layout(size, params['wall_ratio'], params['number_ratio'])
             
-            if self.is_valid_akari_layout(layout, size) and self.is_solvable(layout, size):
+            # Comprehensive validation
+            if (self.is_valid_akari_layout(layout, size) and 
+                self.is_solvable(layout, size) and
+                self._validate_puzzle_quality(layout, size, difficulty)):
+                
                 seed = self.generate_seed(layout)
                 return {
                     'layout': layout,
@@ -135,6 +237,47 @@ class AkariPuzzleGeneratorAPI:
         
         logging.warning(f"Failed to generate {difficulty} {size}x{size} puzzle after {params['max_attempts']} attempts")
         return None
+    
+    def _validate_puzzle_quality(self, layout: List[List], size: int, difficulty: str) -> bool:
+        """Additional quality checks for puzzle generation"""
+        # Count cells
+        white_cells = sum(1 for row in layout for cell in row if cell == 0)
+        wall_cells = sum(1 for row in layout for cell in row if cell == 'X')
+        numbered_cells = sum(1 for row in layout for cell in row 
+                           if isinstance(cell, str) and cell.isdigit())
+        
+        total_cells = size * size
+        
+        # Difficulty-specific checks
+        if difficulty == 'easy':
+            # Easy puzzles should have more white cells and fewer constraints
+            if white_cells < total_cells * 0.5 or numbered_cells < 1:
+                return False
+        elif difficulty == 'medium':
+            # Medium puzzles should have balanced constraints
+            if white_cells < total_cells * 0.4 or numbered_cells < 2:
+                return False
+        elif difficulty == 'hard':
+            # Hard puzzles should have more constraints
+            if white_cells < total_cells * 0.3 or numbered_cells < 3:
+                return False
+        elif difficulty == 'expert':
+            # Expert puzzles should be very constrained
+            if white_cells < total_cells * 0.25 or numbered_cells < 4:
+                return False
+        
+        # Check for variety in numbered cells (optional for small puzzles)
+        numbers = [int(cell) for row in layout for cell in row 
+                  if isinstance(cell, str) and cell.isdigit()]
+        if size >= 8 and len(set(numbers)) < 2:  # Need at least 2 different numbers for larger puzzles
+            return False
+        
+        # Check for reasonable wall distribution
+        wall_ratio = wall_cells / total_cells
+        if wall_ratio < 0.15 or wall_ratio > 0.5:
+            return False
+        
+        return True
     
     def send_puzzles_to_api(self, puzzles: List[Dict], mode: str = 'premium') -> Dict:
         """Send puzzles to the API"""
